@@ -62,6 +62,7 @@ print('fixture log')
                 self.assertEqual(audit.audit('https://example.com/', 'quick'), 0)
                 first = next((root / 'reports/example.com').iterdir())
                 self.assertTrue((first / 'report.html').exists())
+                self.assertTrue((first / 'summary.html').exists())
                 self.assertEqual(json.loads((first / 'metadata.json').read_text())['status'], 'complete')
                 with self.assertRaises(ValueError):
                     audit.promote(first, 'v1')
@@ -122,10 +123,15 @@ print('fixture log')
             'tables': {
                 'seo': {'rows': [
                     {'urlPathAndQuery': '/', 'title': 'Home', 'description': 'Home desc', 'h1': 'Home', 'robotsIndex': '1'},
-                    {'urlPathAndQuery': '/public', 'title': 'Public', 'description': 'Public desc', 'h1': 'Public', 'robotsIndex': '0'},
+                    {'urlPathAndQuery': '/public', 'title': 'Public | Brand | Brand', 'description': 'Public desc', 'h1': 'Public', 'robotsIndex': '0'},
                     {'urlPathAndQuery': '/internal', 'title': 'Internal', 'description': 'Internal desc', 'h1': 'Internal', 'robotsIndex': '0'},
                 ]},
-                'seo-headings': {'rows': []},
+                'seo-headings': {'rows': [
+                    {'urlPathAndQuery': '/public', 'headings': '<h1>One <h1>Two', 'headingsErrorsCount': '1'}
+                ]},
+                'redirects': {'rows': [
+                    {'sourceUqId': 'https://example.com/', 'statusCode': '308', 'targetUrl': '/new', 'url': 'https://example.com/old'}
+                ]},
                 'skipped': {'rows': [
                     {'reason': 'Not allowed host', 'url': 'https://docs.example.net/source', 'sourceAttr': '<a href>', 'sourceUqId': '/'}
                 ]},
@@ -156,6 +162,9 @@ print('fixture log')
                             for x in summary['normalized_findings']))
         self.assertTrue(any(x['code'] == 'security-header-content-security-policy' and x['affected'] == 3
                             for x in summary['normalized_findings']))
+        self.assertTrue(any(x['code'] == 'multiple-h1' for x in summary['normalized_findings']))
+        self.assertTrue(any(x['code'] == 'repeated-title-suffix' for x in summary['normalized_findings']))
+        self.assertTrue(any(x['code'] == 'internal-redirect-links' for x in summary['normalized_findings']))
         self.assertTrue(any(x['code'] == 'siteone-ssl-protocol-unsafe'
                             for x in summary['normalized_findings']))
         self.assertFalse(any(x['code'] == 'siteone-seo-noindex-sitewide'
