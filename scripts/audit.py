@@ -221,7 +221,7 @@ def command(binary, url, config, run):
             '--max-skipped-urls=' + str(config['max_urls'] * 2),
             '--rows-limit=' + str(config['max_urls'] * 2),
             '--max-url-length=2048', '--max-non200-responses-per-basename=3',
-            '--timeout=15', '--no-cache', '--ignore-html-comments', '--no-color',
+            '--timeout=15', '--no-cache', '--disable-all-assets', '--ignore-html-comments', '--no-color',
             '--hide-progress-bar', '--show-scheme-and-host', '--do-not-truncate-url',
             '--user-agent=' + UA + '!', '--result-storage=file',
             '--result-storage-dir=' + str(run / 'responses'),
