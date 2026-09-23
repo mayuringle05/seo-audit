@@ -1,0 +1,20 @@
+Audit started: /tmp/tmp8vm95st_/reports/example.com/2026-09-23_165339_141859Z-224a2d68
+Report directory: /tmp/tmp8vm95st_/reports/example.com/2026-09-23_165339_141859Z-224a2d68
+/tmp/tmp8vm95st_/baselines/example.com/v1
+Audit started: /tmp/tmp8vm95st_/reports/example.com/2026-09-23_165339_375770Z-7771a37f
+Report directory: /tmp/tmp8vm95st_/reports/example.com/2026-09-23_165339_375770Z-7771a37f
+Audit started: /tmp/tmp8vm95st_/reports/other.example/2026-09-23_165339_569840Z-f2a09e30
+Audit failed: [Errno 2] No such file or directory: '/tmp/tmp8vm95st_/baselines/other.example/v1/metadata.json'
+Report directory: /tmp/tmp8vm95st_/reports/other.example/2026-09-23_165339_569840Z-f2a09e30
+Report directory: /tmp/tmp8vm95st_/reports/other.example/2026-09-23_165339_773588Z-afbf4396
+Audit started: /tmp/tmp8vm95st_/reports/example.com/2026-09-23_165339_923910Z-3567e2ed
+Audit failed: Rendered/full audit blocked: upstream browser mode does not enforce GET/HEAD-only requests or bound browser subresource traffic. See README. No requests sent.
+Audit failed: Baseline target, mode, configuration, or crawler version differs; refusing misleading comparison
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 1.099s
+
+OK
+Report directory: /tmp/tmp8vm95st_/reports/example.com/2026-09-23_165339_923910Z-3567e2ed
+Report directory: /tmp/tmp8vm95st_/reports/example.com/2026-09-23_165340_101680Z-29ea3c71
+Report directory: /tmp/tmp8vm95st_/reports/example.com/2026-09-23_165340_102516Z-63681dfc

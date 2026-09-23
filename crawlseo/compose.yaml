@@ -1,0 +1,52 @@
+name: seo-audit-crawlseo
+services:
+  gateway:
+    image: nginx:stable-alpine
+    restart: "no"
+    ports:
+      - "127.0.0.1:3000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    mem_limit: 64m
+    cpus: 0.25
+  app:
+    image: ${CRAWLSEO_IMAGE:?Run scripts/crawlseo.sh init first}
+    restart: "no"
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://crawlseo:${POSTGRES_PASSWORD:?Missing local password}@db:5432/crawlseo
+      NEXTAUTH_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    mem_limit: 1536m
+    cpus: 1
+  db:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      POSTGRES_USER: crawlseo
+      POSTGRES_DB: crawlseo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Missing local password}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crawlseo -d crawlseo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 384m
+    cpus: 0.5
+volumes:
+  db_data:

@@ -1,0 +1,18 @@
+[
+  [
+    "GET",
+    "/robots.txt"
+  ],
+  [
+    "GET",
+    "/"
+  ],
+  [
+    "GET",
+    "/second"
+  ],
+  [
+    "GET",
+    "/missing"
+  ]
+]

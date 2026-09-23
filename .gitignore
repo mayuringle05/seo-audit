@@ -1,0 +1,5 @@
+reports/*
+baselines/*
+crawlseo/.env
+.audit.lock
+__pycache__/

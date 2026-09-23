@@ -1,0 +1,325 @@
+{
+  "schema": 1,
+  "pages": {
+    "http://127.0.0.1:46241/": "200",
+    "http://127.0.0.1:46241/second": "200",
+    "http://127.0.0.1:46241/missing": "404"
+  },
+  "issues": [
+    {
+      "code": "http-404",
+      "url": "http://127.0.0.1:46241/missing"
+    },
+    {
+      "code": "missing-description",
+      "url": "http://127.0.0.1:46241/"
+    },
+    {
+      "code": "missing-description",
+      "url": "http://127.0.0.1:46241/second"
+    },
+    {
+      "code": "missing-title",
+      "url": "http://127.0.0.1:46241/second"
+    }
+  ],
+  "issue_counts": {
+    "missing-description": 2,
+    "missing-title": 1,
+    "http-404": 1
+  },
+  "duplicate_clusters": {
+    "title": [],
+    "description": [],
+    "h1": []
+  },
+  "native_findings": [
+    {
+      "aplCode": "dns",
+      "status": "CRITICAL",
+      "text": "Problem with DNS analysis: Unable to resolve DNS records for 127.0.0.1"
+    },
+    {
+      "aplCode": "security",
+      "status": "CRITICAL",
+      "text": "Security - 6 pages(s) with critical finding(s)."
+    },
+    {
+      "aplCode": "seo-title-missing",
+      "status": "WARNING",
+      "text": "1 page(s) without a <title>"
+    },
+    {
+      "aplCode": "meta-description-uniqueness",
+      "status": "WARNING",
+      "text": "The description '' exceeds the allowed 10% duplicity. 100% of pages have this same description."
+    },
+    {
+      "aplCode": "brotli-support",
+      "status": "WARNING",
+      "text": "2 page(s) do not support Brotli compression."
+    },
+    {
+      "aplCode": "webp-support",
+      "status": "WARNING",
+      "text": "No WebP image found on the website."
+    },
+    {
+      "aplCode": "avif-support",
+      "status": "WARNING",
+      "text": "No AVIF image found on the website."
+    },
+    {
+      "aplCode": "pages-without-main-landmark",
+      "status": "WARNING",
+      "text": "2 page(s) without a main landmark"
+    },
+    {
+      "aplCode": "robots-txt-127.0.0.1",
+      "status": "NOTICE",
+      "text": "Loaded robots.txt for domain '127.0.0.1': status code 200, size 33 B and took 8 ms."
+    },
+    {
+      "aplCode": "skipped",
+      "status": "NOTICE",
+      "text": "Skipped URLs - 1 skipped URLs found"
+    },
+    {
+      "aplCode": "404",
+      "status": "NOTICE",
+      "text": "404 NOTICE - 1 non-existent page(s) found"
+    },
+    {
+      "aplCode": "ssl-tls-analyzer",
+      "status": "NOTICE",
+      "text": "SSL/TLS not supported, analyzer skipped."
+    },
+    {
+      "aplCode": "seo-meta-description-missing",
+      "status": "NOTICE",
+      "text": "2 page(s) without a meta description"
+    },
+    {
+      "aplCode": "seo-canonical-missing",
+      "status": "NOTICE",
+      "text": "2 page(s) without a rel=canonical link"
+    },
+    {
+      "aplCode": "external-urls",
+      "status": "OK",
+      "text": "External URLs - no external URLs found"
+    },
+    {
+      "aplCode": "redirects",
+      "status": "OK",
+      "text": "Redirects - no redirects found"
+    },
+    {
+      "aplCode": "slowUrls",
+      "status": "OK",
+      "text": "Performance OK - all non-media URLs are faster than 3 seconds"
+    },
+    {
+      "aplCode": "unique-headers",
+      "status": "OK",
+      "text": "HTTP headers - found 4 unique headers"
+    },
+    {
+      "aplCode": "title-uniqueness",
+      "status": "OK",
+      "text": "Only one title provided for uniqueness check."
+    },
+    {
+      "aplCode": "pages-with-missing-quotes",
+      "status": "OK",
+      "text": "All pages have quoted attributes"
+    },
+    {
+      "aplCode": "pages-with-large-svgs",
+      "status": "OK",
+      "text": "All pages have inline SVGs smaller than 5120 bytes"
+    },
+    {
+      "aplCode": "pages-with-duplicated-svgs",
+      "status": "OK",
+      "text": "All pages have inline SVGs with less than 5 duplicates"
+    },
+    {
+      "aplCode": "pages-with-invalid-svgs",
+      "status": "OK",
+      "text": "All pages have valid or none inline SVGs"
+    },
+    {
+      "aplCode": "pages-with-multiple-h1",
+      "status": "OK",
+      "text": "All pages without multiple <h1> headings"
+    },
+    {
+      "aplCode": "pages-without-h1",
+      "status": "OK",
+      "text": "All pages have <h1> heading"
+    },
+    {
+      "aplCode": "pages-with-skipped-heading-levels",
+      "status": "OK",
+      "text": "All pages have heading structure without skipped levels"
+    },
+    {
+      "aplCode": "pages-with-deep-dom",
+      "status": "OK",
+      "text": "All pages have DOM depth less than 30"
+    },
+    {
+      "aplCode": "pages-with-non-clickable-phone-numbers",
+      "status": "OK",
+      "text": "All pages have clickable (interactive) phone numbers"
+    },
+    {
+      "aplCode": "pages-with-invalid-html",
+      "status": "OK",
+      "text": "No HTML structural issues found"
+    },
+    {
+      "aplCode": "pages-without-image-alt-attributes",
+      "status": "OK",
+      "text": "All pages have image alt attributes"
+    },
+    {
+      "aplCode": "pages-without-form-labels",
+      "status": "OK",
+      "text": "All pages have form labels"
+    },
+    {
+      "aplCode": "pages-without-aria-labels",
+      "status": "OK",
+      "text": "All links/buttons have an accessible name"
+    },
+    {
+      "aplCode": "pages-without-lang",
+      "status": "OK",
+      "text": "All pages have lang attribute"
+    },
+    {
+      "aplCode": "pages-weight-exceeded",
+      "status": "OK",
+      "text": "All pages are within the page-weight budget"
+    },
+    {
+      "aplCode": "export-to-html",
+      "status": "INFO",
+      "text": "HTML report saved to '/workspace/scratch/0027bfd03008/native-fixture-report/report.html' and took 0 ms"
+    }
+  ],
+  "stats": {
+    "countByStatus": {
+      "200": 2,
+      "404": 1
+    },
+    "totalExecutionTime": 3.699,
+    "totalRequestsTimes": 0.007,
+    "totalRequestsTimesAvg": 0.002,
+    "totalRequestsTimesMax": 0.004,
+    "totalRequestsTimesMin": 0.001,
+    "totalRequestsTimesP90": 0.004,
+    "totalSize": 340,
+    "totalSizeFormatted": "340 B",
+    "totalUrls": 3
+  },
+  "quality_scores": {
+    "categories": [
+      {
+        "code": "performance",
+        "deductions": [],
+        "label": "Excellent",
+        "name": "Performance",
+        "score": 10.0,
+        "weight": 0.2
+      },
+      {
+        "code": "seo",
+        "deductions": [
+          {
+            "fix": "Write a unique meta description per page summarizing its content (~50-160 chars).",
+            "points": 0.3,
+            "reason": "Non-unique meta descriptions detected"
+          },
+          {
+            "fix": "Fix or redirect the broken links causing 404s (see the 404 table for source pages).",
+            "points": 0.5,
+            "reason": "1 page(s) returned 404"
+          },
+          {
+            "fix": "Add a unique, descriptive <title> to every indexable page.",
+            "points": 0.5,
+            "reason": "1 page(s) without a <title>"
+          }
+        ],
+        "label": "Good",
+        "name": "SEO",
+        "score": 8.7,
+        "weight": 0.2
+      },
+      {
+        "code": "security",
+        "deductions": [
+          {
+            "fix": "Add the missing security headers (CSP, HSTS, X-Content-Type-Options) and harden cookies (Secure/HttpOnly/SameSite).",
+            "points": 2.5,
+            "reason": "6 page(s) with critical security findings"
+          }
+        ],
+        "label": "Good",
+        "name": "Security",
+        "score": 7.5,
+        "weight": 0.25
+      },
+      {
+        "code": "accessibility",
+        "deductions": [
+          {
+            "fix": "Wrap the primary content in a single <main> element (or role=\"main\").",
+            "points": 0.3,
+            "reason": "2 page(s) without a main landmark"
+          }
+        ],
+        "label": "Excellent",
+        "name": "Accessibility",
+        "score": 9.7,
+        "weight": 0.2
+      },
+      {
+        "code": "best-practices",
+        "deductions": [
+          {
+            "fix": "Enable Brotli (or at least gzip) compression for text assets on the server/CDN.",
+            "points": 0.5,
+            "reason": "No Brotli compression support"
+          },
+          {
+            "fix": "Serve images in a modern format (WebP or AVIF) for better compression.",
+            "points": 0.3,
+            "reason": "No WebP image support"
+          },
+          {
+            "fix": "Consider AVIF for the best image compression (alongside or instead of WebP).",
+            "points": 0.1,
+            "reason": "No AVIF image support"
+          }
+        ],
+        "label": "Excellent",
+        "name": "Best Practices",
+        "score": 9.1,
+        "weight": 0.15
+      }
+    ],
+    "overall": {
+      "code": "overall",
+      "deductions": [],
+      "label": "Good",
+      "name": "Overall",
+      "score": 8.9,
+      "weight": 1.0
+    }
+  },
+  "comparison_scope": "HTTP errors, missing/duplicate titles/descriptions/H1, noindex observations, heading hierarchy; other native tables retained for review"
+}
