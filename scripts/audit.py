@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import fcntl
 import gzip
 import hashlib
+import html
 import io
 import ipaddress
 import json
@@ -235,9 +236,27 @@ def command(binary, url, config, run):
     return args
 
 
-def summarize(report, url):
+def _boolish(value):
+    return str(value).strip().lower() in ('1', 'true', 'yes')
+
+
+def _slug(value):
+    return re.sub(r'[^a-z0-9]+', '-', value.lower()).strip('-') or 'finding'
+
+
+def summarize(report, url, discovery=None, config=None):
+    """Build a conservative, context-aware summary from SiteOne's raw report.
+
+    Raw SiteOne output is always retained. This layer deliberately re-derives
+    core SEO findings from tables so generic heuristics (for example a high
+    noindex ratio or off-domain skips) cannot silently become authoritative
+    defects without context.
+    """
     if not isinstance(report.get('results'), list) or not isinstance(report.get('tables'), dict):
         raise ValueError('Unsupported SiteOne JSON schema; raw report retained')
+    discovery = discovery or {}
+    config = config or {}
+    sitemap_urls = set(discovery.get('sitemap_urls') or [])
     issues = set()
     pages = {}
     for r in report['results']:
@@ -248,34 +267,218 @@ def summarize(report, url):
         pages[address] = status
         if not status.isdigit() or int(status) >= 400:
             issues.add(('http-' + status, address))
-    clusters = {}
+
     rows = report['tables'].get('seo', {}).get('rows', [])
+    if not isinstance(rows, list):
+        raise ValueError('Unsupported SiteOne SEO table')
+    clusters = {}
     for field in ('title', 'description', 'h1'):
         grouped = defaultdict(set)
         for row in rows:
             address = urljoin(url, row['urlPathAndQuery'])
-            value = row.get(field, '').strip()
+            value = str(row.get(field, '') or '').strip()
             if value:
                 grouped[value].add(address)
-            elif row.get('robotsIndex') != '0' and row.get('deniedByRobotsTxt') != '1':
+            elif str(row.get('robotsIndex')) != '0' and not _boolish(row.get('deniedByRobotsTxt')):
                 issues.add(('missing-' + field, address))
         clusters[field] = [{'value': v, 'urls': sorted(a)} for v, a in grouped.items() if len(a) > 1]
         for cluster in clusters[field]:
             for address in cluster['urls']:
                 issues.add(('duplicate-' + field, address))
-    for row in rows:
-        if row.get('robotsIndex') == '0':
-            # Observation; intent requires a reviewed baseline.
-            issues.add(('noindex-observed', urljoin(url, row['urlPathAndQuery'])))
-    for row in report['tables'].get('seo-headings', {}).get('rows', []):
-        if int(row.get('headingsErrorsCount', '0')) > 0:
-            issues.add(('heading-hierarchy', urljoin(url, row['urlPathAndQuery'])))
-    return {'schema': 1, 'pages': pages, 'issues': [{'code': k, 'url': u} for k, u in sorted(issues)],
-            'issue_counts': dict(Counter(k for k, _ in issues)), 'duplicate_clusters': clusters,
-            'native_findings': report.get('summary', {}).get('items', []),
-            'stats': report.get('stats', {}), 'quality_scores': report.get('qualityScores', {}),
-            'comparison_scope': 'HTTP errors, missing/duplicate titles/descriptions/H1, noindex observations, heading hierarchy; other native tables retained for review'}
 
+    noindex_urls = []
+    noindex_in_sitemap = []
+    for row in rows:
+        if str(row.get('robotsIndex')) == '0':
+            address = urljoin(url, row['urlPathAndQuery'])
+            noindex_urls.append(address)
+            issues.add(('noindex-observed', address))
+            if address in sitemap_urls:
+                noindex_in_sitemap.append(address)
+                issues.add(('noindex-in-sitemap', address))
+
+    for row in report['tables'].get('seo-headings', {}).get('rows', []):
+        try:
+            count = int(row.get('headingsErrorsCount', '0') or 0)
+        except (TypeError, ValueError):
+            count = 0
+        if count > 0:
+            issues.add(('heading-hierarchy', urljoin(url, row['urlPathAndQuery'])))
+
+    normalized = []
+    suppressed = []
+
+    def add(severity, code, text, affected=None, urls=None, source='wrapper'):
+        item = {'severity': severity, 'code': code, 'text': text, 'source': source}
+        if affected is not None:
+            item['affected'] = affected
+        if urls:
+            item['urls'] = sorted(urls)
+        normalized.append(item)
+
+    issue_counts = Counter(k for k, _ in issues)
+    by_code = defaultdict(list)
+    for code, address in issues:
+        by_code[code].append(address)
+
+    http_5xx = sorted(u for code, u in issues if code.startswith('http-5'))
+    http_4xx = sorted(u for code, u in issues if code.startswith('http-4'))
+    if http_5xx:
+        add('critical', 'http-5xx', f'{len(http_5xx)} URL(s) returned server errors', len(http_5xx), http_5xx)
+    if http_4xx:
+        add('warning', 'http-4xx', f'{len(http_4xx)} URL(s) returned client errors', len(http_4xx), http_4xx)
+
+    for code, severity, label in (
+        ('missing-title', 'warning', 'page(s) missing a title'),
+        ('missing-description', 'notice', 'page(s) missing a meta description'),
+        ('missing-h1', 'warning', 'indexable page(s) missing an H1'),
+        ('duplicate-title', 'warning', 'page(s) using a duplicated title'),
+        ('duplicate-description', 'notice', 'page(s) using a duplicated meta description'),
+        ('duplicate-h1', 'warning', 'page(s) using a duplicated H1'),
+        ('heading-hierarchy', 'warning', 'page(s) with heading-structure errors'),
+    ):
+        urls_for_code = sorted(by_code.get(code, []))
+        if urls_for_code:
+            add(severity, code, f'{len(urls_for_code)} {label}', len(urls_for_code), urls_for_code)
+
+    if noindex_in_sitemap:
+        add('critical', 'noindex-in-sitemap',
+            f'{len(noindex_in_sitemap)} sitemap URL(s) are noindex; sitemap membership is a strong indexability signal',
+            len(noindex_in_sitemap), noindex_in_sitemap)
+    elif rows and noindex_urls and len(noindex_urls) / len(rows) >= 0.5:
+        add('info', 'high-noindex-outside-sitemap',
+            f'{len(noindex_urls)} of {len(rows)} crawled HTML pages are noindex, but none of the discovered sitemap URLs are noindex. '
+            'Treat this as an indexing-strategy observation, not an automatic site-wide failure.',
+            len(noindex_urls))
+
+    skipped_rows = report['tables'].get('skipped', {}).get('rows', []) or []
+    target_host = (urlsplit(url).hostname or '').lower()
+    off_domain_skips = []
+    other_skips = []
+    for row in skipped_rows:
+        skipped_url = str(row.get('url', '') or '')
+        skipped_host = (urlsplit(skipped_url).hostname or '').lower()
+        if row.get('reason') == 'Not allowed host' and skipped_host and skipped_host != target_host:
+            off_domain_skips.append(row)
+        else:
+            other_skips.append(row)
+    if off_domain_skips:
+        add('info', 'external-urls-skipped',
+            f'{len(off_domain_skips)} off-domain URL(s) were discovered and intentionally not crawled',
+            len(off_domain_skips))
+    if other_skips:
+        add('notice', 'crawler-skips-other',
+            f'{len(other_skips)} URL(s) were skipped for reasons other than normal off-domain scope',
+            len(other_skips))
+
+    security_rows = report['tables'].get('security', {}).get('rows', []) or []
+    for row in security_rows:
+        critical = int(row.get('critical', '0') or 0)
+        warning = int(row.get('warning', '0') or 0)
+        notice = int(row.get('notice', '0') or 0)
+        affected = max(critical, warning, notice)
+        if not affected:
+            continue
+        severity = 'critical' if critical else ('warning' if warning else 'notice')
+        header = str(row.get('header', '') or 'security')
+        recommendation = str(row.get('recommendation', '') or '').strip()
+        add(severity, 'security-header-' + _slug(header),
+            recommendation or f'{header} produced a {severity} finding',
+            affected, source='siteone-security-table')
+
+    # Core signals above are re-derived from structured tables. Suppress the
+    # corresponding SiteOne summary heuristics to prevent double-counting,
+    # contradictions, and context-free severity inflation.
+    suppressed_codes = {
+        'skipped': 'Off-domain skips are classified from the skipped table.',
+        'external-urls': 'External-link discovery is classified from the skipped/external tables.',
+        'seo-noindex-sitewide': 'Noindex is classified using sitemap context instead of raw ratio.',
+        'pages-without-h1': 'H1 presence is derived per indexable page from the SEO table.',
+        'pages-with-multiple-h1': 'Duplicate/multiple heading defects are derived from structured tables.',
+        'pages-with-skipped-heading-levels': 'Heading defects are derived from the headings table.',
+        'security': 'Security findings are aggregated once per header/policy from the security table.',
+    }
+    native_findings = report.get('summary', {}).get('items', []) or []
+    for item in native_findings:
+        code = str(item.get('aplCode', '') or '')
+        if code in suppressed_codes:
+            suppressed.append({'finding': item, 'reason': suppressed_codes[code]})
+            continue
+        status = str(item.get('status', '') or '').upper()
+        if status in ('CRITICAL', 'WARNING', 'NOTICE'):
+            add(status.lower(), 'siteone-' + _slug(code),
+                str(item.get('text', '') or code), source='siteone-native')
+
+    severity_counts = dict(Counter(item['severity'] for item in normalized))
+    observed_sitemap = sum(1 for item in sitemap_urls if item in pages)
+    url_cap = config.get('max_urls')
+    coverage = {
+        'observed_urls': len(pages),
+        'html_pages': len(rows),
+        'sitemap_urls_discovered': len(sitemap_urls),
+        'sitemap_urls_observed': observed_sitemap,
+        'url_cap': url_cap,
+        'url_cap_reached': bool(type(url_cap) is int and len(pages) >= url_cap),
+        'query_policy': config.get('query_policy'),
+    }
+    indexing = {
+        'noindex_observed': len(noindex_urls),
+        'noindex_in_sitemap': len(noindex_in_sitemap),
+        'noindex_outside_sitemap': len(noindex_urls) - len(noindex_in_sitemap),
+        'sitemap_urls_discovered': len(sitemap_urls),
+    }
+
+    return {
+        'schema': 2,
+        'pages': pages,
+        'issues': [{'code': k, 'url': u} for k, u in sorted(issues)],
+        'issue_counts': dict(issue_counts),
+        'duplicate_clusters': clusters,
+        'normalized_findings': normalized,
+        'severity_counts': severity_counts,
+        'coverage': coverage,
+        'indexing': indexing,
+        'native_findings': native_findings,
+        'suppressed_native_findings': suppressed,
+        'stats': report.get('stats', {}),
+        'native_quality_scores': report.get('qualityScores', {}),
+        'quality_scores': {
+            'status': 'not_authoritative',
+            'reason': 'Raw SiteOne quality scores are preserved as native_quality_scores but are not used as the wrapper verdict because context-sensitive findings require normalization.'
+        },
+        'comparison_scope': 'HTTP errors, missing/duplicate titles/descriptions/H1, sitemap-aware noindex observations, heading hierarchy; normalized native/security findings are retained for review.'
+    }
+
+
+def render_summary_html(summary, meta):
+    def esc(value):
+        return html.escape(str(value), quote=True)
+
+    findings = summary.get('normalized_findings', [])
+    rows = ''.join(
+        '<tr><td>' + esc(item.get('severity', '')) + '</td><td><code>' + esc(item.get('code', '')) +
+        '</code></td><td>' + esc(item.get('affected', '')) + '</td><td>' + esc(item.get('text', '')) + '</td></tr>'
+        for item in findings
+    ) or '<tr><td colspan="4">No normalized findings.</td></tr>'
+    coverage = summary.get('coverage', {})
+    indexing = summary.get('indexing', {})
+    return '''<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SEO Audit Normalized Summary</title>
+<style>body{font:15px/1.5 system-ui,sans-serif;max-width:1200px;margin:32px auto;padding:0 20px}table{border-collapse:collapse;width:100%;margin:18px 0}th,td{border:1px solid #ccc;padding:8px;vertical-align:top;text-align:left}code{font-size:.9em}.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}.card{border:1px solid #ccc;padding:12px;border-radius:8px}</style>
+</head><body><h1>Normalized SEO Audit Summary</h1>
+<p>This is the wrapper's context-aware view. <a href="report.html">Open the raw SiteOne report</a> for full evidence.</p>
+<div class="meta">
+<div class="card"><strong>Target</strong><br>''' + esc(meta.get('target_url', '')) + '''</div>
+<div class="card"><strong>Observed URLs</strong><br>''' + esc(coverage.get('observed_urls', 0)) + '''</div>
+<div class="card"><strong>HTML pages</strong><br>''' + esc(coverage.get('html_pages', 0)) + '''</div>
+<div class="card"><strong>URL cap reached</strong><br>''' + esc(coverage.get('url_cap_reached', False)) + '''</div>
+<div class="card"><strong>Noindex / sitemap</strong><br>''' + esc(indexing.get('noindex_in_sitemap', 0)) + ''' / ''' + esc(indexing.get('sitemap_urls_discovered', 0)) + '''</div>
+</div>
+<h2>Normalized findings</h2>
+<table><thead><tr><th>Severity</th><th>Code</th><th>Affected</th><th>Finding</th></tr></thead><tbody>''' + rows + '''</tbody></table>
+<p>Raw SiteOne quality scores are intentionally not treated as authoritative by this summary.</p>
+</body></html>'''
 
 def compare(before, after):
     def keys(x):
@@ -403,7 +606,7 @@ def audit(url, mode, baseline=None):
         else:
             if not (run / 'report.html').is_file():
                 raise ValueError('Crawler succeeded but HTML report is missing')
-            summary = summarize(json.loads((run / 'report.json').read_text()), url)
+            summary = summarize(json.loads((run / 'report.json').read_text()), url, discovery, config)
             write_json(run / 'summary.json', summary)
             if not summary['pages']:
                 raise ValueError('No URLs observed; run is not a valid audit')
@@ -415,6 +618,7 @@ def audit(url, mode, baseline=None):
             warnings.append('Coverage is limited to discovered, permitted URLs; unlinked URLs absent from sitemaps cannot be found.')
             meta['coverage_warnings'] = warnings
             meta['status'] = 'complete'
+            (run / 'summary.html').write_text(render_summary_html(summary, meta))
             if prior is not None:
                 write_json(run / 'comparison.json', compare(prior, summary))
     except KeyboardInterrupt as e:
