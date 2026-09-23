@@ -276,11 +276,14 @@ def summarize(report, url, discovery=None, config=None):
         grouped = defaultdict(set)
         for row in rows:
             address = urljoin(url, row['urlPathAndQuery'])
+            indexable = str(row.get('robotsIndex')) != '0' and not _boolish(row.get('deniedByRobotsTxt'))
             value = str(row.get(field, '') or '').strip()
-            if value:
+            if value and indexable:
                 grouped[value].add(address)
-            elif str(row.get('robotsIndex')) != '0' and not _boolish(row.get('deniedByRobotsTxt')):
+            elif not value and indexable:
                 issues.add(('missing-' + field, address))
+        # Duplicate metadata is an SEO defect only when two or more indexable
+        # URLs collide. Intentional noindex/query variants must not inflate it.
         clusters[field] = [{'value': v, 'urls': sorted(a)} for v, a in grouped.items() if len(a) > 1]
         for cluster in clusters[field]:
             for address in cluster['urls']:
@@ -300,8 +303,9 @@ def summarize(report, url, discovery=None, config=None):
     for row in rows:
         address = urljoin(url, row['urlPathAndQuery'])
         title = str(row.get('title', '') or '').strip()
+        indexable = str(row.get('robotsIndex')) != '0' and not _boolish(row.get('deniedByRobotsTxt'))
         parts = [part.strip() for part in re.split(r'\s+(?:\||·|—|-)\s+', title) if part.strip()]
-        if len(parts) >= 2 and parts[-1].casefold() == parts[-2].casefold():
+        if indexable and len(parts) >= 2 and parts[-1].casefold() == parts[-2].casefold():
             issues.add(('repeated-title-suffix', address))
 
     for row in report['tables'].get('seo-headings', {}).get('rows', []):
@@ -397,18 +401,19 @@ def summarize(report, url, discovery=None, config=None):
 
     security_rows = report['tables'].get('security', {}).get('rows', []) or []
     for row in security_rows:
-        critical = int(row.get('critical', '0') or 0)
-        warning = int(row.get('warning', '0') or 0)
-        notice = int(row.get('notice', '0') or 0)
-        affected = max(critical, warning, notice)
-        if not affected:
-            continue
-        severity = 'critical' if critical else ('warning' if warning else 'notice')
         header = str(row.get('header', '') or 'security')
         recommendation = str(row.get('recommendation', '') or '').strip()
-        add(severity, 'security-header-' + _slug(header),
-            recommendation or f'{header} produced a {severity} finding',
-            affected, source='siteone-security-table')
+        counts = {
+            'critical': int(row.get('critical', '0') or 0),
+            'warning': int(row.get('warning', '0') or 0),
+            'notice': int(row.get('notice', '0') or 0),
+        }
+        for severity, affected in counts.items():
+            if not affected:
+                continue
+            add(severity, 'security-header-' + _slug(header) + '-' + severity,
+                recommendation or f'{header} produced a {severity} finding',
+                affected, source='siteone-security-table')
 
     # Core signals above are re-derived from structured tables. Suppress the
     # corresponding SiteOne summary heuristics to prevent double-counting,
