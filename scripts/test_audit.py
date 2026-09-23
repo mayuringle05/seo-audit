@@ -105,6 +105,7 @@ print('fixture log')
         args = audit.command('/a path/bin', 'https://example.com/', audit.DEFAULTS, Path('/a path/run'))
         self.assertIn('--workers=1', args)
         self.assertIn('--no-cache', args)
+        self.assertIn('--disable-all-assets', args)
         self.assertNotIn('--ignore-robots-txt', args)
         self.assertFalse(any(x.startswith(('--upload', '--browser', '--http-auth')) for x in args))
         self.assertNotIn('--remove-query-params', args)
@@ -160,7 +161,7 @@ print('fixture log')
                             for x in summary['normalized_findings']))
         self.assertTrue(any(x['code'] == 'external-urls-skipped' and x['severity'] == 'info'
                             for x in summary['normalized_findings']))
-        self.assertTrue(any(x['code'] == 'security-header-content-security-policy' and x['affected'] == 3
+        self.assertTrue(any(x['code'] == 'security-header-content-security-policy-warning' and x['affected'] == 3
                             for x in summary['normalized_findings']))
         self.assertTrue(any(x['code'] == 'multiple-h1' for x in summary['normalized_findings']))
         self.assertTrue(any(x['code'] == 'repeated-title-suffix' for x in summary['normalized_findings']))
@@ -197,6 +198,9 @@ print('fixture log')
         self.assertFalse(any(x['code'] == 'noindex-in-sitemap' for x in summary['normalized_findings']))
         self.assertTrue(any(x['code'] == 'high-noindex-outside-sitemap' and x['severity'] == 'info'
                             for x in summary['normalized_findings']))
+        self.assertNotIn('duplicate-title', summary['issue_counts'])
+        self.assertNotIn('duplicate-description', summary['issue_counts'])
+        self.assertNotIn('duplicate-h1', summary['issue_counts'])
 
 
 if __name__ == '__main__':
