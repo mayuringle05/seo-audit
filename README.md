@@ -21,12 +21,12 @@ Quick is the default. Setup uses the documented Homebrew tap; existing installat
 
 1. Validates the URL, resolves its hostname to public IPs, and excludes common action/admin paths.
 2. Reads same-origin robots.txt and bounded XML sitemap/index files, including gzip. Seeds the homepage, supplied URL, and eligible sitemap URLs; SiteOne discovers further internal links.
-3. Runs one SiteOne worker at one request per second by default, with a 768 MiB crawler limit, file-backed response storage, no HTTP cache, a 3,000 visited-URL cap and a 60-minute crawler deadline.
+3. Quick mode is HTML-focused: it disables asset/file downloads, runs one SiteOne worker at up to two requests per second, keeps a 768 MiB crawler limit, uses file-backed response storage with no HTTP cache, and is bounded to 2,000 visited URLs / 30 minutes by default.
 4. Keeps SiteOne's HTML, JSON and text reports plus logs, the exact argument vector, version, configuration, discovery notes and exit status.
 5. Adds a context-aware `summary.json` plus `summary.html`. Core SEO signals are re-derived from structured tables, noindex is interpreted with sitemap context, normal off-domain skips are informational, repeated site-wide security/header findings are aggregated, and raw SiteOne findings remain preserved as evidence.
 6. Compares to an explicitly chosen compatible baseline, if supplied.
 
-Assets count toward the URL budget. The limit and memory settings apply to the crawler, not the whole operating system. Disk use grows with saved responses and reports; retention/deletion is deliberately manual. The sitemap phase is separately bounded to 30 maps, 5 MiB expanded per map, 15 seconds per request and five redirects. The crawler's duration cap does not include discovery.
+In quick mode, SiteOne's `--disable-all-assets` avoids downloading images, JavaScript, CSS, fonts and files; page links are still crawled. This is deliberate because quick mode is for site-wide HTML/SEO coverage, while heavyweight asset/browser validation belongs in a separate mode. The limit and memory settings apply to the crawler, not the whole operating system. Disk use grows with saved responses and reports; retention/deletion is deliberately manual. The sitemap phase is separately bounded to 30 maps, 5 MiB expanded per map, 15 seconds per request and five redirects. The crawler's duration cap does not include discovery.
 
 ### Reports
 
@@ -63,7 +63,7 @@ bash scripts/seo-audit.sh https://example.com quick --baseline baseline-v1
 
 `--accept-partial` explicitly acknowledges the documented crawl coverage limits. It is normally required because no crawler can prove it found every public URL. It does not permit promotion of a failed run. Baseline names cannot be overwritten. Comparisons require the same target URL, configuration, mode, crawler version and wrapper schema.
 
-Automated per-URL comparison covers HTTP failures, missing/duplicate title/description/H1, multiple H1s, repeated trailing title segments, sitemap-aware noindex observations, and heading hierarchy findings. A noindex URL becomes a blocking SEO finding only when stronger context supports it (for example, the URL is also in the discovered sitemap); unsitemapped noindex pages remain observations. URLs absent from a later crawl remain **unverified**, not resolved. Internal redirect links are surfaced in the normalized findings. Canonical/rendering/redirect-chain regressions are not yet comprehensively normalized; inspect native evidence as needed. Raw SiteOne quality scores are preserved but are not treated as the wrapper verdict.
+Automated per-URL comparison covers HTTP failures, missing/duplicate title/description/H1, multiple H1s, repeated trailing title segments, sitemap-aware noindex observations, and heading hierarchy findings. Duplicate title/description/H1 clusters are calculated across indexable URLs only so intentional noindex/query variants do not create fake duplicate-SEO failures. A noindex URL becomes a blocking SEO finding only when stronger context supports it (for example, the URL is also in the discovered sitemap); unsitemapped noindex pages remain observations. URLs absent from a later crawl remain **unverified**, not resolved. Internal redirect links are surfaced in the normalized findings. Canonical/rendering/redirect-chain regressions are not yet comprehensively normalized; inspect native evidence as needed. Raw SiteOne quality scores are preserved but are not treated as the wrapper verdict.
 
 ## Configuration
 
