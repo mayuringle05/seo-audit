@@ -120,12 +120,14 @@ print('fixture log')
                 {'url': 'https://example.com/', 'status': '200', 'type': 1},
                 {'url': 'https://example.com/public', 'status': '200', 'type': 1},
                 {'url': 'https://example.com/internal', 'status': '200', 'type': 1},
+                {'url': 'https://example.com/branddup', 'status': '200', 'type': 1},
             ],
             'tables': {
                 'seo': {'rows': [
                     {'urlPathAndQuery': '/', 'title': 'Home', 'description': 'Home desc', 'h1': 'Home', 'robotsIndex': '1'},
                     {'urlPathAndQuery': '/public', 'title': 'Public | Brand | Brand', 'description': 'Public desc', 'h1': 'Public', 'robotsIndex': '0'},
                     {'urlPathAndQuery': '/internal', 'title': 'Internal', 'description': 'Internal desc', 'h1': 'Internal', 'robotsIndex': '0'},
+                    {'urlPathAndQuery': '/branddup', 'title': 'Guide | Brand | Brand', 'description': 'Guide desc', 'h1': 'Guide', 'robotsIndex': '1'},
                 ]},
                 'seo-headings': {'rows': [
                     {'urlPathAndQuery': '/public', 'headings': '<h1>One <h1>Two', 'headingsErrorsCount': '1'}
@@ -148,7 +150,7 @@ print('fixture log')
                 {'aplCode': 'pages-without-h1', 'status': 'OK', 'text': 'All pages have H1'},
                 {'aplCode': 'ssl-protocol-unsafe', 'status': 'CRITICAL', 'text': 'TLSv1.0 is unsafe'},
             ]},
-            'stats': {'totalUrls': 3},
+            'stats': {'totalUrls': 4},
             'qualityScores': {'overall': {'score': 4.2}},
         }
         discovery = {'sitemap_urls': ['https://example.com/public'], 'notes': [], 'sitemaps': []}
