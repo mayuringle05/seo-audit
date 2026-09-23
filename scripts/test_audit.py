@@ -106,7 +106,89 @@ print('fixture log')
         self.assertIn('--no-cache', args)
         self.assertNotIn('--ignore-robots-txt', args)
         self.assertFalse(any(x.startswith(('--upload', '--browser', '--http-auth')) for x in args))
+        self.assertNotIn('--remove-query-params', args)
+        image_url = 'https://example.com/_next/image?url=%2Fposter.jpg&w=640&q=75'
+        self.assertEqual(audit.normalize_query(image_url, audit.DEFAULTS), image_url)
         self.assertEqual(audit.normalize_query('https://example.com/?page=2&utm_source=x', dict(audit.DEFAULTS, query_policy='keep', keep_query_params=['page'])), 'https://example.com/?page=2')
+
+
+    def test_real_crawl_normalization_uses_sitemap_context(self):
+        report = {
+            'results': [
+                {'url': 'https://example.com/', 'status': '200', 'type': 1},
+                {'url': 'https://example.com/public', 'status': '200', 'type': 1},
+                {'url': 'https://example.com/internal', 'status': '200', 'type': 1},
+            ],
+            'tables': {
+                'seo': {'rows': [
+                    {'urlPathAndQuery': '/', 'title': 'Home', 'description': 'Home desc', 'h1': 'Home', 'robotsIndex': '1'},
+                    {'urlPathAndQuery': '/public', 'title': 'Public', 'description': 'Public desc', 'h1': 'Public', 'robotsIndex': '0'},
+                    {'urlPathAndQuery': '/internal', 'title': 'Internal', 'description': 'Internal desc', 'h1': 'Internal', 'robotsIndex': '0'},
+                ]},
+                'seo-headings': {'rows': []},
+                'skipped': {'rows': [
+                    {'reason': 'Not allowed host', 'url': 'https://docs.example.net/source', 'sourceAttr': '<a href>', 'sourceUqId': '/'}
+                ]},
+                'security': {'rows': [
+                    {'header': 'Content-Security-Policy', 'critical': '0', 'warning': '3', 'notice': '0',
+                     'recommendation': "CSP contains unsafe-inline"}
+                ]},
+            },
+            'summary': {'items': [
+                {'aplCode': 'seo-noindex-sitewide', 'status': 'CRITICAL', 'text': '2 of 3 are noindex'},
+                {'aplCode': 'skipped', 'status': 'CRITICAL', 'text': '1 skipped URL'},
+                {'aplCode': 'security', 'status': 'WARNING', 'text': 'Security - 3 pages with warnings'},
+                {'aplCode': 'pages-without-h1', 'status': 'OK', 'text': 'All pages have H1'},
+                {'aplCode': 'ssl-protocol-unsafe', 'status': 'CRITICAL', 'text': 'TLSv1.0 is unsafe'},
+            ]},
+            'stats': {'totalUrls': 3},
+            'qualityScores': {'overall': {'score': 4.2}},
+        }
+        discovery = {'sitemap_urls': ['https://example.com/public'], 'notes': [], 'sitemaps': []}
+        summary = audit.summarize(report, 'https://example.com/', discovery, dict(audit.DEFAULTS, max_urls=100))
+
+        self.assertEqual(summary['indexing']['noindex_observed'], 2)
+        self.assertEqual(summary['indexing']['noindex_in_sitemap'], 1)
+        self.assertEqual(summary['issue_counts']['noindex-in-sitemap'], 1)
+        self.assertTrue(any(x['code'] == 'noindex-in-sitemap' and x['severity'] == 'critical'
+                            for x in summary['normalized_findings']))
+        self.assertTrue(any(x['code'] == 'external-urls-skipped' and x['severity'] == 'info'
+                            for x in summary['normalized_findings']))
+        self.assertTrue(any(x['code'] == 'security-header-content-security-policy' and x['affected'] == 3
+                            for x in summary['normalized_findings']))
+        self.assertTrue(any(x['code'] == 'siteone-ssl-protocol-unsafe'
+                            for x in summary['normalized_findings']))
+        self.assertFalse(any(x['code'] == 'siteone-seo-noindex-sitewide'
+                             for x in summary['normalized_findings']))
+        self.assertEqual(summary['quality_scores']['status'], 'not_authoritative')
+        self.assertEqual(summary['native_quality_scores']['overall']['score'], 4.2)
+
+    def test_unsitemapped_noindex_is_observation_not_critical_failure(self):
+        report = {
+            'results': [{'url': 'https://example.com/', 'status': '200', 'type': 1},
+                        {'url': 'https://example.com/search', 'status': '200', 'type': 1}],
+            'tables': {
+                'seo': {'rows': [
+                    {'urlPathAndQuery': '/', 'title': 'Home', 'description': 'Desc', 'h1': 'Home', 'robotsIndex': '1'},
+                    {'urlPathAndQuery': '/search', 'title': 'Search', 'description': 'Desc2', 'h1': 'Search', 'robotsIndex': '0'},
+                ]},
+                'seo-headings': {'rows': []},
+            },
+            'summary': {'items': [
+                {'aplCode': 'seo-noindex-sitewide', 'status': 'CRITICAL', 'text': '1 of 2 are noindex'}
+            ]},
+            'stats': {'totalUrls': 2},
+        }
+        summary = audit.summarize(
+            report, 'https://example.com/',
+            {'sitemap_urls': ['https://example.com/'], 'notes': [], 'sitemaps': []},
+            dict(audit.DEFAULTS, max_urls=100),
+        )
+        self.assertEqual(summary['indexing']['noindex_in_sitemap'], 0)
+        self.assertFalse(any(x['code'] == 'noindex-in-sitemap' for x in summary['normalized_findings']))
+        self.assertTrue(any(x['code'] == 'high-noindex-outside-sitemap' and x['severity'] == 'info'
+                            for x in summary['normalized_findings']))
+
 
 if __name__ == '__main__':
     unittest.main()
