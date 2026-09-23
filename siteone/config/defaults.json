@@ -5,6 +5,8 @@
   "memory_mb": 768,
   "query_policy": "preserve",
   "keep_query_params": [],
-  "ignore_regex": [],
+  "ignore_regex": [
+    "/cdn-cgi/"
+  ],
   "max_sitemaps": 30
 }
