@@ -297,13 +297,24 @@ def summarize(report, url, discovery=None, config=None):
                 noindex_in_sitemap.append(address)
                 issues.add(('noindex-in-sitemap', address))
 
+    for row in rows:
+        address = urljoin(url, row['urlPathAndQuery'])
+        title = str(row.get('title', '') or '').strip()
+        parts = [part.strip() for part in re.split(r'\s+(?:\||·|—|-)\s+', title) if part.strip()]
+        if len(parts) >= 2 and parts[-1].casefold() == parts[-2].casefold():
+            issues.add(('repeated-title-suffix', address))
+
     for row in report['tables'].get('seo-headings', {}).get('rows', []):
+        address = urljoin(url, row['urlPathAndQuery'])
         try:
             count = int(row.get('headingsErrorsCount', '0') or 0)
         except (TypeError, ValueError):
             count = 0
+        headings_text = str(row.get('headings', '') or '')
+        if len(re.findall(r'(?i)<h1(?:\s|>)', headings_text)) > 1:
+            issues.add(('multiple-h1', address))
         if count > 0:
-            issues.add(('heading-hierarchy', urljoin(url, row['urlPathAndQuery'])))
+            issues.add(('heading-hierarchy', address))
 
     normalized = []
     suppressed = []
@@ -335,6 +346,8 @@ def summarize(report, url, discovery=None, config=None):
         ('duplicate-title', 'warning', 'page(s) using a duplicated title'),
         ('duplicate-description', 'notice', 'page(s) using a duplicated meta description'),
         ('duplicate-h1', 'warning', 'page(s) using a duplicated H1'),
+        ('multiple-h1', 'warning', 'page(s) containing multiple H1 headings'),
+        ('repeated-title-suffix', 'warning', 'page(s) with a repeated trailing title segment'),
         ('heading-hierarchy', 'warning', 'page(s) with heading-structure errors'),
     ):
         urls_for_code = sorted(by_code.get(code, []))
@@ -370,6 +383,17 @@ def summarize(report, url, discovery=None, config=None):
         add('notice', 'crawler-skips-other',
             f'{len(other_skips)} URL(s) were skipped for reasons other than normal off-domain scope',
             len(other_skips))
+
+    redirect_rows = report['tables'].get('redirects', {}).get('rows', []) or []
+    internal_redirects = []
+    for row in redirect_rows:
+        redirected = urljoin(url, str(row.get('url', '') or ''))
+        if (urlsplit(redirected).hostname or '').lower() == target_host:
+            internal_redirects.append(redirected)
+    if internal_redirects:
+        add('notice', 'internal-redirect-links',
+            f'{len(internal_redirects)} internal URL(s) are linked through redirects; link directly to the final destination when intentional',
+            len(internal_redirects), sorted(set(internal_redirects)))
 
     security_rows = report['tables'].get('security', {}).get('rows', []) or []
     for row in security_rows:
@@ -566,7 +590,7 @@ def audit(url, mode, baseline=None):
         missing = sorted(f for f in flags if not re.search(re.escape(f) + r'(?:[=\s<]|$)', help_text))
         if missing:
             raise ValueError('Installed SiteOne lacks required options: ' + ', '.join(missing))
-        scope = {'url': url, 'mode': mode, 'config': config, 'version': version, 'wrapper_schema': 1}
+        scope = {'url': url, 'mode': mode, 'config': config, 'version': version, 'wrapper_schema': 2}
         meta['scope_fingerprint'] = hashlib.sha256(json.dumps(scope, sort_keys=True).encode()).hexdigest()
         prior = None
         if baseline:
