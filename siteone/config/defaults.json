@@ -1,9 +1,9 @@
 {
-  "max_urls": 1000,
-  "max_seconds": 1800,
+  "max_urls": 3000,
+  "max_seconds": 3600,
   "requests_per_second": 1,
   "memory_mb": 768,
-  "query_policy": "remove",
+  "query_policy": "preserve",
   "keep_query_params": [],
   "ignore_regex": [],
   "max_sitemaps": 30
