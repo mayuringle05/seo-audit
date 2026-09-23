@@ -21,9 +21,9 @@ Quick is the default. Setup uses the documented Homebrew tap; existing installat
 
 1. Validates the URL, resolves its hostname to public IPs, and excludes common action/admin paths.
 2. Reads same-origin robots.txt and bounded XML sitemap/index files, including gzip. Seeds the homepage, supplied URL, and eligible sitemap URLs; SiteOne discovers further internal links.
-3. Runs one SiteOne worker at one request per second by default, with a 768 MiB crawler limit, file-backed response storage, no HTTP cache, a 1,000 visited-URL cap and a 30-minute crawler deadline.
+3. Runs one SiteOne worker at one request per second by default, with a 768 MiB crawler limit, file-backed response storage, no HTTP cache, a 3,000 visited-URL cap and a 60-minute crawler deadline.
 4. Keeps SiteOne's HTML, JSON and text reports plus logs, the exact argument vector, version, configuration, discovery notes and exit status.
-5. Adds a machine-readable issue summary and duplicate metadata/H1 clusters. Native SiteOne findings and detailed tables remain in the original reports.
+5. Adds a context-aware `summary.json` plus `summary.html`. Core SEO signals are re-derived from structured tables, noindex is interpreted with sitemap context, normal off-domain skips are informational, repeated site-wide security/header findings are aggregated, and raw SiteOne findings remain preserved as evidence.
 6. Compares to an explicitly chosen compatible baseline, if supplied.
 
 Assets count toward the URL budget. The limit and memory settings apply to the crawler, not the whole operating system. Disk use grows with saved responses and reports; retention/deletion is deliberately manual. The sitemap phase is separately bounded to 30 maps, 5 MiB expanded per map, 15 seconds per request and five redirects. The crawler's duration cap does not include discovery.
@@ -41,6 +41,7 @@ reports/<hostname>/<UTC timestamp>-<random suffix>/
   report.json
   report.txt
   summary.json
+  summary.html            # open this first; normalized/context-aware view
   comparison.json        # only when a baseline is selected
   responses/             # native file-backed response data
 ```
@@ -51,7 +52,7 @@ Exit status: native nonzero crawler code is preserved; wrapper/preflight/report 
 
 ## Baselines
 
-Review the HTML report and `metadata.json` first. Initial runs are discovery only.
+Review `summary.html`, the raw `report.html`, and `metadata.json` before promotion. `summary.html` is the wrapper's context-aware interpretation; `report.html` is unmodified SiteOne evidence and may contain generic heuristics that need context. Initial runs are discovery only.
 
 ```bash
 bash scripts/seo-audit.sh baseline \
@@ -62,7 +63,7 @@ bash scripts/seo-audit.sh https://example.com quick --baseline baseline-v1
 
 `--accept-partial` explicitly acknowledges the documented crawl coverage limits. It is normally required because no crawler can prove it found every public URL. It does not permit promotion of a failed run. Baseline names cannot be overwritten. Comparisons require the same target URL, configuration, mode, crawler version and wrapper schema.
 
-Automated per-URL comparison currently covers HTTP failures, missing/duplicate title/description/H1, observed noindex, and heading hierarchy findings. A noindex observation is not automatically an error: intent comes from review. URLs absent from a later crawl remain **unverified**, not resolved. Canonical/rendering/redirect-chain regressions are not comprehensively normalized by this version; inspect native reports. Native score regression is not used as a substitute for per-page comparison.
+Automated per-URL comparison covers HTTP failures, missing/duplicate title/description/H1, multiple H1s, repeated trailing title segments, sitemap-aware noindex observations, and heading hierarchy findings. A noindex URL becomes a blocking SEO finding only when stronger context supports it (for example, the URL is also in the discovered sitemap); unsitemapped noindex pages remain observations. URLs absent from a later crawl remain **unverified**, not resolved. Internal redirect links are surfaced in the normalized findings. Canonical/rendering/redirect-chain regressions are not yet comprehensively normalized; inspect native evidence as needed. Raw SiteOne quality scores are preserved but are not treated as the wrapper verdict.
 
 ## Configuration
 
@@ -72,13 +73,13 @@ Edit `siteone/config/defaults.json`, or create `siteone/config/domains/<hostname
 {
   "max_urls": 3000,
   "max_seconds": 3600,
-  "query_policy": "keep",
-  "keep_query_params": ["page", "category"],
+  "query_policy": "preserve",
+  "keep_query_params": [],
   "ignore_regex": ["/calendar/", "[?&]session="]
 }
 ```
 
-`query_policy` is `remove` (default), `keep` (allowlisted keys), or `preserve`. The conservative default can omit legitimate query-dependent pages; choose `keep` or `preserve` for those sites. All modes have a URL cap. Fragments are excluded. The common action-path exclusions are always applied. There is no arbitrary CLI-argument escape hatch that could enable uploads, auth, robots bypass, or browser execution. Use Rust-compatible regex syntax; Python's preflight syntax check does not cover every Rust regex restriction.
+`query_policy` is `preserve` (default), `keep` (allowlisted keys), or `remove`. The default preserves functional query strings because globally deleting parameters can corrupt real application URLs such as image optimizers, search, pagination, filters, and signed/resource URLs. Use `keep` or `remove` only when the site's parameter semantics are understood. All modes remain bounded by the URL cap. Fragments are excluded. The common action-path exclusions are always applied. There is no arbitrary CLI-argument escape hatch that could enable uploads, auth, robots bypass, or browser execution. Use Rust-compatible regex syntax; Python's preflight syntax check does not cover every Rust regex restriction.
 
 Crawl scope is the supplied hostname. Cross-origin discovery redirects and off-domain sitemap files are omitted and reported. Supply the final canonical hostname if the homepage redirects elsewhere. URLs disallowed by robots are not fetched. Discovery stops if robots.txt is inaccessible except for a confirmed 404/410. Unknown orphan pages cannot be detected without another URL inventory.
 
