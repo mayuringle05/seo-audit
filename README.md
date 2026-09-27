@@ -28,6 +28,16 @@ Quick is the default. Setup uses the documented Homebrew tap; existing installat
 
 Assets count toward the URL budget. The limit and memory settings apply to the crawler, not the whole operating system. Disk use grows with saved responses and reports; retention/deletion is deliberately manual. The sitemap phase is separately bounded to 30 maps, 5 MiB expanded per map, 15 seconds per request and five redirects. The crawler's duration cap does not include discovery.
 
+### Page-weight diagnosis
+
+When SiteOne reports that some pages exceed its page-weight budget but does not name them, run the bounded diagnostic against an exact URL-list file:
+
+```bash
+python3 scripts/page-weight-diagnose.py avenime-pages.txt
+```
+
+The diagnostic starts with the whole list, then bisects only the groups that contain an overweight page. It therefore avoids crawling every page separately. It creates a fresh temporary HTTP cache for the diagnostic and reuses that cache only for its subgroup checks; the cache and temporary reports are removed automatically when the command finishes. The final output names only the exact URLs SiteOne still counts over its budget.
+
 ### Reports
 
 ```
